@@ -47,3 +47,8 @@ from .coders import *
 from .architectures import *
 
 from .data import *
+
+from .kernels import *
+
+from .evaluate import *
+

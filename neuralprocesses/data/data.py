@@ -3,6 +3,7 @@ import math
 
 import lab as B
 import numpy as np
+import torch
 from plum import convert
 
 from ..aggregate import AggregateInput, Aggregate
@@ -52,7 +53,7 @@ class DataGenerator(AbstractGenerator):
     Args:
         dtype (dtype): Data type.
         seed (int): Seed.
-        num_tasks (int): Number of batches in an epoch.
+        num_tasks (int): Number of total tasks in an epoch (num_batches * batch_size).
         batch_size (int): Number of tasks per batch.
         device (str): Device.
 
@@ -140,16 +141,16 @@ class SyntheticGenerator(DataGenerator):
         dtype,
         seed=0,
         seed_params=99,
-        noise=0.05**2,
+        noise=0,
         num_tasks=2**14,
         batch_size=16,
-        dist_x=UniformContinuous(-2, 2),
+        dist_x=UniformContinuous(-10, 10),
         dist_x_context=None,
         dist_x_target=None,
         dim_y=1,
         dim_y_latent=None,
-        num_context=UniformDiscrete(0, 50),
-        num_target=UniformDiscrete(50, 50),
+        num_context=UniformDiscrete(0, 100),
+        num_target=UniformDiscrete(100, 100),
         device="cpu",
     ):
         super().__init__(dtype, seed, num_tasks, batch_size, device)
@@ -235,9 +236,27 @@ def new_batch(gen, dim_y, *, fix_x_across_batch=False, batch_size=None):
             xs.append(x)
         return xs, B.concat(*xs, axis=1), ns, sum(ns)
 
+    def _sub_sample_context(xts, dist_num):
+        ncs, xcs = [], []
+        for j in range(dim_y):
+            gen.state, n = dist_num.sample(gen.state, gen.int64)
+            x = xts[j].cpu().numpy()
+            nb, ppp, x_dim = x.shape
+            nb_inds = np.repeat(np.arange(nb), int(n))
+            context_inds = np.array([np.random.permutation(ppp)[:int(n)] for _ in range(nb)]).flatten()
+            x_inds = np.zeros_like(x, dtype=bool)
+            x_inds[nb_inds, context_inds, :] = True
+            x_c = x[x_inds].reshape((x.shape[0], -1, x.shape[-1]))
+            x_c = B.to_active_device(torch.tensor(x_c))
+            xcs.append(x_c)
+            ncs.append(n)
+        return xcs, B.concat(*xcs, axis=1), ncs, sum(ncs)
+
+
     # For every output, sample the context and inputs.
-    xcs, xc, ncs, nc = _sample(gen.num_context, gen.dist_x_context)
+    # xcs, xc, ncs, nc = _sample(gen.num_context, gen.dist_x_context)
     xts, xt, nts, nt = _sample(gen.num_target, gen.dist_x_target)
+    xcs, xc, ncs, nc = _sub_sample_context(xts, gen.num_context)
 
     def set_batch(batch, yc, yt, transpose=True):
         """Fill a batch dictionary `batch`.

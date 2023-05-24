@@ -13,10 +13,11 @@ def construct_gnp(
     dim_y=1,
     dim_yc=None,
     dim_yt=None,
-    dim_embedding=256,
+    dim_embedding=128,
     attention=False,
     attention_num_heads=8,
     num_enc_layers=3,
+    num_stoch_enc_layers=3,
     enc_same=False,
     num_dec_layers=6,
     width=512,
@@ -154,7 +155,7 @@ def construct_gnp(
             return nps.MLP(
                 in_dim=dim_x + dim_yci,
                 out_dim=dim_embedding,
-                num_layers=num_enc_layers,
+                num_layers=num_stoch_enc_layers,
                 width=width,
                 dtype=dtype,
             )

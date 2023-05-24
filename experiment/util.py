@@ -74,7 +74,7 @@ def with_err(vals, err=None, and_lower=False, and_upper=False):
 
 def load(last=False, device="cpu", **kw_args):
     """Load an existing model."""
-    from train import main
+    from neuralprocesses.run import run
 
     exp = main(**kw_args, load=True)
     wd = exp["wd"]
